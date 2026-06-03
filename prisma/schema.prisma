@@ -1,0 +1,155 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  name      String?
+  email     String   @unique
+  password  String
+  role      String   @default("USER") // USER, ADMIN, SELLER, MARKETER
+  createdAt DateTime @default(now())
+  
+  // Relations
+  seller    Seller?
+  marketer  Marketer?
+  payouts   Payout[]
+}
+
+model Seller {
+  id          String   @id @default(cuid())
+  userId      String   @unique
+  shopName    String
+  shopUrl     String   @unique // Unique web address for the shop
+  description String
+  category    String
+  contactEmail String
+  website     String?
+  socialLinks Json?
+  status      String   @default("PENDING")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
+  user        User     @relation(fields: [userId], references: [id])
+  products    Product[]
+  rewardTasks RewardTask[]
+
+  @@map("sellers")
+}
+
+model Product {
+  id          String   @id @default(cuid())
+  title       String
+  description String
+  price       Float
+  category    String
+  image       String
+  status      String   @default("PENDING") // PENDING, APPROVED, REJECTED
+  sellerId    String
+  seller      Seller   @relation(fields: [sellerId], references: [id])
+  approvedAt  DateTime?
+  approvedBy  String?
+  rejectedAt  DateTime?
+  rejectedBy  String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("products")
+}
+
+// Content Reward Program Models
+
+model Marketer {
+  id            String   @id @default(cuid())
+  userId        String   @unique
+  bio           String?
+  specialties   Json     // Array of content types they specialize in
+  portfolio     String?  // Portfolio URL
+  socialLinks   Json?    // Social media links
+  rating        Float    @default(0)
+  totalEarnings Float    @default(0)
+  completedTasks Int     @default(0)
+  status        String   @default("ACTIVE") // ACTIVE, INACTIVE, SUSPENDED
+  stripeAccountId String? // Stripe Connect account for payouts
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  // Relations
+  user              User               @relation(fields: [userId], references: [id])
+  contentSubmissions ContentSubmission[]
+  payouts           Payout[]
+
+  @@map("marketers")
+}
+
+model RewardTask {
+  id              String   @id @default(cuid())
+  sellerId        String
+  title           String
+  description     String
+  productDetails  String
+  contentType     String   // UGC, REEL, TWEET, BLOG_POST, VIDEO, etc.
+  requirements    String
+  budget          Float
+  deadline        DateTime
+  maxSubmissions  Int      @default(10)
+  status          String   @default("ACTIVE") // ACTIVE, PAUSED, COMPLETED, CANCELLED
+  totalSubmissions Int     @default(0)
+  approvedSubmissions Int  @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  // Relations
+  seller            Seller             @relation(fields: [sellerId], references: [id])
+  contentSubmissions ContentSubmission[]
+
+  @@map("reward_tasks")
+}
+
+model ContentSubmission {
+  id          String   @id @default(cuid())
+  taskId      String
+  marketerId  String
+  content     String   // Content description or file URLs
+  mediaUrls   Json     // Array of media file URLs
+  notes       String?
+  status      String   @default("PENDING") // PENDING, APPROVED, REJECTED
+  feedback    String?  // Seller feedback
+  submittedAt DateTime @default(now())
+  reviewedAt  DateTime?
+  reviewedBy  String?
+  
+  // Relations
+  task      RewardTask @relation(fields: [taskId], references: [id])
+  marketer  Marketer   @relation(fields: [marketerId], references: [id])
+  payout    Payout?
+
+  @@map("content_submissions")
+}
+
+model Payout {
+  id                String   @id @default(cuid())
+  submissionId      String   @unique
+  marketerId        String
+  userId            String   // Admin who processed the payout
+  amount            Float
+  stripePayoutId    String?  // Stripe payout ID (now also used for Paytm ID)
+  upiId             String?  // UPI ID for Paytm payments
+  paymentMethod     String   @default("PAYTM_UPI") // PAYTM_UPI, STRIPE, etc.
+  status            String   @default("PENDING") // PENDING, PROCESSING, COMPLETED, FAILED
+  processedAt       DateTime?
+  createdAt         DateTime @default(now())
+  
+  // Relations
+  submission ContentSubmission @relation(fields: [submissionId], references: [id])
+  marketer   Marketer          @relation(fields: [marketerId], references: [id])
+  user       User              @relation(fields: [userId], references: [id])
+
+  @@map("payouts")
+}

@@ -1,0 +1,3 @@
+-- AlterTable
+ALTER TABLE `payouts` ADD COLUMN `paymentMethod` VARCHAR(191) NOT NULL DEFAULT 'PAYTM_UPI',
+    ADD COLUMN `upiId` VARCHAR(191) NULL;
