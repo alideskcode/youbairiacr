@@ -111,7 +111,7 @@ export function Footer() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="flex items-center space-x-2">
               <Mail className="h-4 w-4 text-muted-foreground" />
-              <span className="text-sm text-muted-foreground">youbairia@outlook.com</span>
+              <span className="text-sm text-muted-foreground">info@youbairia.com</span>
             </div>
             <div className="flex items-center space-x-2">
               <Phone className="h-4 w-4 text-muted-foreground" />

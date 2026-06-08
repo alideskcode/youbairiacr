@@ -37,9 +37,9 @@ export function Navbar() {
               <Home className="h-3.5 w-3.5" />
               Home
             </Link>
-            <Link href="/products" className="flex items-center gap-1 text-sm font-medium hover:text-primary transition-colors">
+            <Link href="/campaigns" className="flex items-center gap-1 text-sm font-medium hover:text-primary transition-colors">
               <Package className="h-3.5 w-3.5" />
-              Products & Campaigns
+              Campaigns
             </Link>
             <Link href="/contact-us" className="flex items-center gap-1 text-sm font-medium hover:text-primary transition-colors">
               <MessageSquare className="h-3.5 w-3.5" />

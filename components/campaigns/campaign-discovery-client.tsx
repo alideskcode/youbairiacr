@@ -86,22 +86,7 @@ export function CampaignDiscoveryClient({
             }
           />
         </div>
-        <Select
-          value={filters.category}
-          onValueChange={(v) => setFilters((f) => ({ ...f, category: v }))}
-        >
-          <SelectTrigger className="w-full md:w-[160px]">
-            <SelectValue placeholder="Category" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All categories</SelectItem>
-            {categories.map((c) => (
-              <SelectItem key={c} value={c}>
-                {c}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        
         <Select
           value={filters.platform}
           onValueChange={(v) => setFilters((f) => ({ ...f, platform: v }))}
@@ -122,13 +107,7 @@ export function CampaignDiscoveryClient({
           value={filters.status}
           onValueChange={(v) => setFilters((f) => ({ ...f, status: v }))}
         >
-          <SelectTrigger className="w-full md:w-[140px]">
-            <SelectValue placeholder="Status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="active">Active</SelectItem>
-            <SelectItem value="all">All</SelectItem>
-          </SelectContent>
+          
         </Select>
       </div>
 
