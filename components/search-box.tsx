@@ -27,12 +27,12 @@ export function SearchBox() {
             onSubmit={handleSearch}
             className="flex items-center gap-2"
           >
-            <Input
-              type="search"
-              placeholder="Search products..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="h-9 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60"
+  <Input
+    type="search"
+    placeholder="Search products..."
+    value={searchQuery}
+    onChange={(e) => setSearchQuery(e.target.value)}
+    className="h-9 bg-white border border-gray-300 rounded-md px-3 py-1"
             />
             <Button
               type="button"
