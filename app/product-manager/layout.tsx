@@ -3,12 +3,14 @@
 import { useEffect, useState } from "react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
-import { LayoutDashboard, Megaphone, FileVideo } from "lucide-react"
+import { FileVideo, LayoutDashboard, Megaphone, PackagePlus, Store } from "lucide-react"
 import { supabase } from "@/lib/supabase/client"
 import { cn } from "@/lib/utils"
 
 const nav = [
-  { href: "/product-manager", label: "Overview", icon: LayoutDashboard },
+  { href: "/product-manager", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/sell/product", label: "New Product", icon: PackagePlus },
+  { href: "/products", label: "Marketplace", icon: Store },
   { href: "/product-manager/campaigns", label: "Campaigns", icon: Megaphone },
   { href: "/product-manager/submissions", label: "Submissions", icon: FileVideo },
 ]

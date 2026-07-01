@@ -1,323 +1,231 @@
 "use client"
 
-import Link from "next/link"
 import Image from "next/image"
+import Link from "next/link"
+import { useParams, useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
-import { useParams } from "next/navigation"
-import { ArrowLeft, Check, ExternalLink, Mail, ShoppingCart } from "lucide-react"
+import { ArrowLeft, BadgeCheck, BookOpen, Code2, Download, ExternalLink, Lock, MessageCircle, ShieldCheck, Users } from "lucide-react"
+import { toast } from "sonner"
 
-import { Button } from "@/components/ui/button"
-import { useProductPurchase } from "@/hooks/use-product-purchase"
-import { Separator } from "@/components/ui/separator"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { Separator } from "@/components/ui/separator"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { supabase } from "@/lib/supabase/client"
+import { formatMoney, type MarketplaceProduct } from "@/lib/marketplace"
+import { useCartStore } from "@/app/store/cart"
 
-type Campaign = {
-  id: string
-  title: string
-  description?: string
-  thumbnail?: string
-  platform?: string
-  category?: string
-  payout?: number
-  budget?: number
-  contact_email?: string
-  website?: string
-  social_links?: string[] | null
-  seller_id?: string
-  created_at?: string
-  status?: string
+const placeholder = "/placeholder.jpg"
+
+const typeMeta = {
+  course: { label: "Course", icon: BookOpen },
+  software: { label: "Software", icon: Code2 },
+  community: { label: "Community", icon: Users },
+  download: { label: "Download", icon: Download },
+  bundle: { label: "Bundle", icon: BadgeCheck },
 }
-
-const placeholderImage = "/placeholder.svg?height=600&width=600"
 
 export default function ProductPage() {
   const params = useParams()
+  const router = useRouter()
   const id = typeof params.id === "string" ? params.id : params.id?.[0]
-  const { addToCart, buyNow, isAdding, isBuying } = useProductPurchase()
-
-  const [campaign, setCampaign] = useState<Campaign | null>(null)
+  const addItem = useCartStore((state) => state.addItem)
+  const [product, setProduct] = useState<MarketplaceProduct | null>(null)
   const [loading, setLoading] = useState(true)
+  const [checkingOut, setCheckingOut] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    if (!id) {
-      setLoading(false)
-      setError("Invalid product ID")
+    if (!id) return
+
+    const loadProduct = async () => {
+      try {
+        setLoading(true)
+        const res = await fetch(`/api/marketplace/products/${id}`)
+        const body = await res.json()
+        if (!res.ok || !body.success) throw new Error(body.error ?? "Product not found")
+        setProduct(body.data)
+        setError(null)
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Failed to load product")
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    void loadProduct()
+  }, [id])
+
+  const startCheckout = async () => {
+    if (!product) return
+
+    const {
+      data: { session },
+    } = await supabase.auth.getSession()
+
+    if (!session?.user) {
+      router.push(`/login?callbackUrl=${encodeURIComponent(`/products/${product.slug || product.id}`)}`)
       return
     }
 
-    const fetchCampaign = async () => {
-      setLoading(true)
-      const { data, error: fetchError } = await supabase
-        .from("campaigns")
-        .select("*")
-        .eq("id", id)
-        .maybeSingle()
-
-      if (fetchError) {
-        setError(fetchError.message)
-        setCampaign(null)
-      } else if (!data) {
-        setError("Product not found")
-        setCampaign(null)
+    try {
+      setCheckingOut(true)
+      const res = await fetch("/api/marketplace/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ items: [{ product_id: product.id, quantity: 1 }] }),
+      })
+      const body = await res.json()
+      if (!res.ok || !body.success) throw new Error(body.error ?? "Checkout failed")
+      if (body.data.checkout_url) {
+        window.location.href = body.data.checkout_url
       } else {
-        setError(null)
-        setCampaign(data as Campaign)
+        toast.info(body.data.message ?? "Order created. Payment gateway is not configured.")
+        router.push(`/orders?order=${body.data.order_id}`)
       }
-
-      setLoading(false)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Checkout failed")
+    } finally {
+      setCheckingOut(false)
     }
-
-    fetchCampaign()
-  }, [id])
+  }
 
   if (loading) {
-    return (
-      <div className="container px-4 py-8 md:py-12">
-        <p className="text-muted-foreground">Loading product...</p>
-      </div>
-    )
+    return <div className="py-10 text-muted-foreground">Loading product...</div>
   }
 
-  if (error || !campaign) {
+  if (error || !product) {
     return (
-      <div className="container px-4 py-8 md:py-12 space-y-4">
-        <Link href="/products" className="inline-flex items-center gap-1 text-sm font-medium hover:underline">
+      <div className="py-10">
+        <Link href="/products" className="mb-4 inline-flex items-center gap-2 text-sm hover:underline">
           <ArrowLeft className="h-4 w-4" />
-          Back to Products
+          Back to products
         </Link>
-        <p className="text-destructive">{error ?? "Product not found"}</p>
+        <div className="rounded-lg border p-8 text-destructive">{error ?? "Product not found"}</div>
       </div>
     )
   }
 
-  const price = Number(campaign.payout ?? campaign.budget ?? 0)
-  const category = campaign.platform || campaign.category || "General"
-  const shopName = campaign.title
-  const cartProduct = {
-    id: campaign.id,
-    title: campaign.title,
-    price,
-    image: campaign.thumbnail || placeholderImage,
-    category,
-    seller: shopName,
-  }
-  const socialLinks = Array.isArray(campaign.social_links)
-    ? campaign.social_links.filter(Boolean)
-    : []
-  const dateAdded = campaign.created_at
-    ? new Date(campaign.created_at).toLocaleDateString()
-    : null
+  const image = product.cover_url || product.thumbnail_url || placeholder
+  const meta = typeMeta[product.product_type]
+  const TypeIcon = meta.icon
+  const includes = product.includes?.length ? product.includes : ["Instant unlock after verified payment", "Lifetime access unless stated otherwise", "Seller support included"]
 
   return (
-      <div className="container px-4 py-8 md:py-12">
-        <Link href="/products" className="inline-flex items-center gap-1 text-sm font-medium mb-6 hover:underline">
-          <ArrowLeft className="h-4 w-4" />
-          Back to Products
-        </Link>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 lg:gap-12">
-          <div className="space-y-6">
-            <div className="aspect-square overflow-hidden rounded-lg border bg-muted">
-              <Image
-                src={campaign.thumbnail || placeholderImage}
-                alt={campaign.title}
-                width={600}
-                height={600}
-                className="h-full w-full object-cover"
-              />
-            </div>
+    <div className="py-8 md:py-10">
+      <Link href="/products" className="mb-6 inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
+        <ArrowLeft className="h-4 w-4" />
+        Marketplace
+      </Link>
+
+      <div className="grid gap-8 lg:grid-cols-[1fr_420px]">
+        <section className="space-y-6">
+          <div className="relative aspect-[16/9] overflow-hidden rounded-lg border bg-muted">
+            <Image src={image} alt={product.title} fill className="object-cover" priority />
           </div>
-          <div className="space-y-6">
-            <div>
-              <h1 className="text-3xl font-bold">{campaign.title}</h1>
-              <div className="flex items-center gap-2 mt-2">
-                <Badge>{category}</Badge>
-                <p className="text-sm text-muted-foreground">by {shopName}</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-4">
-              <div className="text-3xl font-bold">${price.toFixed(2)}</div>
-            </div>
-            {campaign.description && (
-              <p className="text-muted-foreground">{campaign.description}</p>
-            )}
-            <Separator />
-            <div className="rounded-lg border bg-muted/30 p-4 space-y-3">
-              <h3 className="font-semibold">Seller details</h3>
-              <dl className="space-y-2 text-sm">
-                <div>
-                  <dt className="text-muted-foreground">Shop name</dt>
-                  <dd className="font-medium">{shopName}</dd>
-                </div>
-                {campaign.contact_email && (
-                  <div>
-                    <dt className="text-muted-foreground">Contact</dt>
-                    <dd>
-                      <a
-                        href={`mailto:${campaign.contact_email}`}
-                        className="inline-flex items-center gap-1 font-medium text-primary hover:underline"
-                      >
-                        <Mail className="h-3.5 w-3.5" />
-                        {campaign.contact_email}
-                      </a>
-                    </dd>
-                  </div>
-                )}
-                {campaign.website && (
-                  <div>
-                    <dt className="text-muted-foreground">Website</dt>
-                    <dd>
-                      <a
-                        href={campaign.website.startsWith("http") ? campaign.website : `https://${campaign.website}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 font-medium text-primary hover:underline break-all"
-                      >
-                        <ExternalLink className="h-3.5 w-3.5 shrink-0" />
-                        {campaign.website}
-                      </a>
-                    </dd>
-                  </div>
-                )}
-                {socialLinks.length > 0 && (
-                  <div>
-                    <dt className="text-muted-foreground">Social</dt>
-                    <dd className="flex flex-wrap gap-2 mt-1">
-                      {socialLinks.map((url) => (
-                        <a
-                          key={url}
-                          href={url.startsWith("http") ? url : `https://${url}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-primary hover:underline text-xs break-all"
-                        >
-                          {url.replace(/^https?:\/\//, "")}
-                        </a>
-                      ))}
-                    </dd>
-                  </div>
-                )}
-              </dl>
-            </div>
-            <Separator />
-            <div className="flex flex-col sm:flex-row gap-3">
-              <Button
-                size="lg"
-                className="sm:flex-1 gap-2"
-                disabled={isAdding || isBuying}
-                onClick={() => addToCart(cartProduct)}
-              >
-                <ShoppingCart className="h-5 w-5" />
-                {isAdding ? "Adding..." : "Add to Cart"}
-              </Button>
-              <Button
-                size="lg"
-                variant="outline"
-                className="sm:flex-1"
-                disabled={isAdding || isBuying}
-                onClick={() => buyNow(cartProduct)}
-              >
-                {isBuying ? "Redirecting..." : "Buy Now"}
-              </Button>
-            </div>
-            <div className="text-sm text-muted-foreground">
-              <p>Digital product — Instant delivery after purchase</p>
-              {dateAdded && <p>Listed on {dateAdded}</p>}
-            </div>
-          </div>
-        </div>
-        <div className="mt-12">
-          <Tabs defaultValue="description">
-            <TabsList className="w-full justify-start">
-              <TabsTrigger value="description">Description</TabsTrigger>
+
+          <Tabs defaultValue="overview">
+            <TabsList>
+              <TabsTrigger value="overview">Overview</TabsTrigger>
+              <TabsTrigger value="access">Access</TabsTrigger>
               <TabsTrigger value="seller">Seller</TabsTrigger>
-              <TabsTrigger value="support">Support</TabsTrigger>
             </TabsList>
-            <TabsContent value="description" className="mt-6">
-              <div className="space-y-4">
-                <h3 className="text-xl font-semibold">Product Description</h3>
-                <p className="text-muted-foreground whitespace-pre-wrap">
-                  {campaign.description || "No description provided."}
-                </p>
+            <TabsContent value="overview" className="mt-5 space-y-4">
+              <h2 className="text-2xl font-semibold">What you get</h2>
+              <p className="whitespace-pre-wrap text-muted-foreground">{product.description}</p>
+              <div className="grid gap-3 sm:grid-cols-2">
+                {includes.map((item) => (
+                  <div key={item} className="flex gap-3 rounded-lg border p-3 text-sm">
+                    <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
+                    <span>{item}</span>
+                  </div>
+                ))}
               </div>
             </TabsContent>
-            <TabsContent value="seller" className="mt-6">
-              <div className="space-y-4">
-                <h3 className="text-xl font-semibold">About the seller</h3>
-                <p className="text-muted-foreground">
-                  This listing is sold by <span className="font-medium text-foreground">{shopName}</span>
-                  {category ? ` in the ${category} category` : ""}.
-                </p>
-                {campaign.description && (
-                  <p className="text-muted-foreground whitespace-pre-wrap">{campaign.description}</p>
-                )}
-                <ul className="space-y-2 text-sm">
-                  {campaign.contact_email && (
-                    <li className="flex items-start gap-2">
-                      <Check className="h-4 w-4 text-green-500 mt-0.5 shrink-0" />
-                      <span>
-                        Email:{" "}
-                        <a href={`mailto:${campaign.contact_email}`} className="text-primary hover:underline">
-                          {campaign.contact_email}
-                        </a>
-                      </span>
-                    </li>
-                  )}
-                  {campaign.website && (
-                    <li className="flex items-start gap-2">
-                      <Check className="h-4 w-4 text-green-500 mt-0.5 shrink-0" />
-                      <span>
-                        Website:{" "}
-                        <a
-                          href={campaign.website.startsWith("http") ? campaign.website : `https://${campaign.website}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-primary hover:underline"
-                        >
-                          {campaign.website}
-                        </a>
-                      </span>
-                    </li>
-                  )}
-                  {socialLinks.map((url) => (
-                    <li key={url} className="flex items-start gap-2">
-                      <Check className="h-4 w-4 text-green-500 mt-0.5 shrink-0" />
-                      <a
-                        href={url.startsWith("http") ? url : `https://${url}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-primary hover:underline break-all"
-                      >
-                        {url}
-                      </a>
-                    </li>
-                  ))}
-                </ul>
+            <TabsContent value="access" className="mt-5 space-y-4">
+              <h2 className="text-2xl font-semibold">Delivery</h2>
+              <div className="rounded-lg border p-4">
+                <div className="flex items-center gap-3">
+                  <Lock className="h-5 w-5 text-muted-foreground" />
+                  <div>
+                    <p className="font-medium">Unlocked by verified payment webhook</p>
+                    <p className="text-sm text-muted-foreground">
+                      Access links, downloads, course materials, and Telegram invites are shown in your orders library after payment succeeds.
+                    </p>
+                  </div>
+                </div>
               </div>
+              {product.product_type === "community" && (
+                <div className="rounded-lg border p-4">
+                  <div className="flex items-center gap-3">
+                    <MessageCircle className="h-5 w-5 text-muted-foreground" />
+                    <div>
+                      <p className="font-medium">Telegram community access</p>
+                      <p className="text-sm text-muted-foreground">
+                        Youbairia stores the seller invite and exposes it only to paid buyers.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
             </TabsContent>
-            <TabsContent value="support" className="mt-6">
-              <div className="space-y-4">
-                <h3 className="text-xl font-semibold">Support</h3>
-                <p className="text-muted-foreground">
-                  For questions about this product, contact the seller directly.
-                </p>
-                {campaign.contact_email ? (
-                  <a
-                    href={`mailto:${campaign.contact_email}`}
-                    className="inline-flex items-center gap-2 text-primary hover:underline"
-                  >
-                    <Mail className="h-4 w-4" />
-                    {campaign.contact_email}
-                  </a>
-                ) : (
-                  <p className="text-sm text-muted-foreground">No contact email provided by the seller.</p>
-                )}
-              </div>
+            <TabsContent value="seller" className="mt-5 space-y-3">
+              <h2 className="text-2xl font-semibold">{product.seller_name || "Youbairia seller"}</h2>
+              <p className="text-muted-foreground">Category: {product.category}</p>
+              {product.support_email && (
+                <a href={`mailto:${product.support_email}`} className="inline-flex items-center gap-2 text-sm font-medium hover:underline">
+                  <ExternalLink className="h-4 w-4" />
+                  {product.support_email}
+                </a>
+              )}
             </TabsContent>
           </Tabs>
-        </div>
+        </section>
+
+        <aside className="h-fit rounded-lg border bg-background p-5 lg:sticky lg:top-28">
+          <div className="space-y-4">
+            <div className="flex flex-wrap gap-2">
+              <Badge className="gap-1">
+                <TypeIcon className="h-3.5 w-3.5" />
+                {meta.label}
+              </Badge>
+              <Badge variant="outline">{product.category}</Badge>
+            </div>
+            <div>
+              <h1 className="text-3xl font-semibold tracking-tight">{product.title}</h1>
+              {product.subtitle && <p className="mt-2 text-muted-foreground">{product.subtitle}</p>}
+            </div>
+            <div className="text-3xl font-semibold">{formatMoney(Number(product.price), product.currency)}</div>
+            <Separator />
+            <Button size="lg" className="w-full" onClick={startCheckout} disabled={checkingOut}>
+              {checkingOut ? "Starting checkout..." : "Buy now"}
+            </Button>
+            <Button
+              size="lg"
+              variant="outline"
+              className="w-full"
+              onClick={() => {
+                addItem({
+                  id: product.id,
+                  title: product.title,
+                  price: Number(product.price),
+                  image,
+                  category: product.category,
+                  seller: product.seller_name || "Youbairia seller",
+                })
+                toast.success("Added to cart")
+              }}
+            >
+              Add to cart
+            </Button>
+            <div className="space-y-2 text-sm text-muted-foreground">
+              <p className="flex items-center gap-2"><ShieldCheck className="h-4 w-4" /> Secure payment verification</p>
+              <p className="flex items-center gap-2"><Download className="h-4 w-4" /> Instant buyer library unlock</p>
+              {product.product_type === "community" && <p className="flex items-center gap-2"><Users className="h-4 w-4" /> Telegram access after payment</p>}
+            </div>
+          </div>
+        </aside>
       </div>
+    </div>
   )
 }

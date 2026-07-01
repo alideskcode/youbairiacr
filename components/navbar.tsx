@@ -1,74 +1,95 @@
 "use client"
 
 import Link from "next/link"
+import { useRouter } from "next/navigation"
+import type { MouseEvent } from "react"
+import { BarChart3, Library, PackagePlus, Search, ShoppingCart, Store } from "lucide-react"
+
 import { Button } from "@/components/ui/button"
 import { UserMenu } from "@/components/user-menu"
-import { ShoppingCart, Home, Package, MessageSquare, Atom } from "lucide-react"
 import { useCartStore } from "@/app/store/cart"
-import { SearchBox } from "@/components/search-box"
 import { useAuth } from "@/hooks/use-auth"
-import { useRouter } from "next/navigation"
 
 export function Navbar() {
+  const router = useRouter()
   const items = useCartStore((state) => state.items)
   const totalCount = items.reduce((total, item) => total + item.quantity, 0)
-  const { isAuthenticated } = useAuth()
-  const router = useRouter()
+  const { isAuthenticated, isLoading } = useAuth()
 
-  const handleCartClick = (e: React.MouseEvent) => {
+  const requireAuth = (href: string) => (event: MouseEvent) => {
     if (!isAuthenticated) {
-      e.preventDefault()
-      router.push("/login?callbackUrl=/cart")
+      event.preventDefault()
+      router.push(`/login?callbackUrl=${encodeURIComponent(href)}`)
     }
   }
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b bg-white shadow-sm">
-      <div className="container mx-auto px-4">
-        <div className="flex flex-col items-center space-y-2 py-2">
-          {/* Logo */}
-          <Link href="/" className="text-lg font-bold">
-            YOUBAIRIA
+    <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur">
+      <div className="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-3 sm:px-6 lg:px-8">
+        <div className="flex items-center justify-between gap-4">
+          <Link href="/" className="text-lg font-semibold tracking-tight">
+            Youbairia
           </Link>
 
-  {/* Navigation */}
-  <nav className="flex items-center gap-4">
-    <Link href="/" className="flex items-center gap-1 text-sm font-medium text-gray-600 hover:text-black transition-colors">
-      <Home className="h-4 w-4" />
-      Home
-    </Link>
-    <Link href="/products" className="flex items-center gap-1 text-sm font-medium text-gray-600 hover:text-black transition-colors">
-      Products
-    </Link>
-    <Link href="/campaigns" className="flex items-center gap-1 text-sm font-medium text-gray-600 hover:text-black transition-colors">
-      Campaigns
-    </Link>
-    <Link href="/contact-us" className="flex items-center gap-1 text-sm font-medium text-gray-600 hover:text-black transition-colors">
-      Help
-    </Link>
-  </nav>
+          <nav className="hidden items-center gap-1 md:flex">
+            <Button asChild variant="ghost" size="sm">
+              <Link href="/products">
+                <Search className="mr-2 h-4 w-4" />
+                Marketplace
+              </Link>
+            </Button>
+            <Button asChild variant="ghost" size="sm">
+              <Link href="/sell/product">
+                <PackagePlus className="mr-2 h-4 w-4" />
+                Sell
+              </Link>
+            </Button>
+            <Button asChild variant="ghost" size="sm">
+              <Link href="/product-manager" onClick={requireAuth("/product-manager")}>
+                <BarChart3 className="mr-2 h-4 w-4" />
+                Dashboard
+              </Link>
+            </Button>
+            <Button asChild variant="ghost" size="sm">
+              <Link href="/campaigns">
+                <Store className="mr-2 h-4 w-4" />
+                Campaigns
+              </Link>
+            </Button>
+          </nav>
 
-  {/* Search and User Actions */}
-  <div className="flex items-center gap-3 w-full max-w-2xl">
-    <div className="flex-1">
-      <SearchBox />
-    </div>
-    <Button variant="ghost" size="icon" className="h-8 w-8" asChild>
-      <Link href="/cart" onClick={handleCartClick} className="relative">
-        <ShoppingCart className="h-4 w-4" />
-        {totalCount > 0 && (
-          <span className="absolute -top-1 -right-1 bg-black text-white text-xs rounded-full h-4 w-4 flex items-center justify-center">
-            {totalCount}
-          </span>
-        )}
-        <span className="sr-only">Cart</span>
-      </Link>
-    </Button>
-    <Link href="/login" className="text-gray-600 hover:text-black transition-colors">
-      Log In
-    </Link>
-  </div>
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" size="icon" asChild>
+              <Link href="/orders" onClick={requireAuth("/orders")}>
+                <Library className="h-4 w-4" />
+                <span className="sr-only">Library</span>
+              </Link>
+            </Button>
+            <Button variant="ghost" size="icon" asChild>
+              <Link href="/cart" onClick={requireAuth("/cart")} className="relative">
+                <ShoppingCart className="h-4 w-4" />
+                {totalCount > 0 && (
+                  <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-foreground px-1 text-[10px] text-background">
+                    {totalCount}
+                  </span>
+                )}
+                <span className="sr-only">Cart</span>
+              </Link>
+            </Button>
+            {!isLoading && (isAuthenticated ? <UserMenu /> : (
+              <Button asChild size="sm">
+                <Link href="/login">Log in</Link>
+              </Button>
+            ))}
+          </div>
         </div>
+
+        <nav className="flex gap-2 overflow-x-auto md:hidden">
+          <Button asChild variant="outline" size="sm"><Link href="/products">Marketplace</Link></Button>
+          <Button asChild variant="outline" size="sm"><Link href="/sell/product">Sell</Link></Button>
+          <Button asChild variant="outline" size="sm"><Link href="/product-manager" onClick={requireAuth("/product-manager")}>Dashboard</Link></Button>
+          <Button asChild variant="outline" size="sm"><Link href="/campaigns">Campaigns</Link></Button>
+        </nav>
       </div>
     </header>
   )

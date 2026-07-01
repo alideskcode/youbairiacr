@@ -1,15 +1,17 @@
 "use client"
 
+import Image from "next/image"
+import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { useCartStore } from "@/app/store/cart"
-import { useOrderStore } from "@/app/store/orders"
-import { Separator } from "@/components/ui/separator"
-import { UPIPayment } from "@/components/upi-payment"
-import { UPIQRCode } from "@/components/upi-qr-code"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { QrCode, Smartphone } from "lucide-react"
-import { useEffect, useState } from "react"
+import { CreditCard, Lock, ShieldCheck, Trash2 } from "lucide-react"
+import { toast } from "sonner"
+import { useState } from "react"
+
 import { AuthGuard } from "@/components/auth-guard"
+import { Button } from "@/components/ui/button"
+import { Separator } from "@/components/ui/separator"
+import { useCartStore } from "@/app/store/cart"
+import { formatMoney } from "@/lib/marketplace"
 
 export default function CheckoutPage() {
   return (
@@ -21,116 +23,113 @@ export default function CheckoutPage() {
 
 function CheckoutContent() {
   const router = useRouter()
-  const { items, clearCart } = useCartStore()
-  const addOrder = useOrderStore((state) => state.addOrder)
-  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState("qr")
+  const { items, removeItem, updateQuantity, clearCart } = useCartStore()
+  const [loading, setLoading] = useState(false)
 
-  const subtotal = items.reduce((total, item) => total + item.price * item.quantity, 0)
-  const tax = subtotal * 0.1
-  const total = subtotal + tax
+  const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0)
+  const platformFee = subtotal * 0.1
+  const total = subtotal + platformFee
 
-  const handlePaymentComplete = async () => {
+  const startCheckout = async () => {
     try {
-      // Add order to store
-      addOrder(items, total)
-      // Clear cart
-      await clearCart()
-      // Redirect to orders page
-      router.push("/orders")
+      setLoading(true)
+      const res = await fetch("/api/marketplace/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          items: items.map((item) => ({ product_id: item.id, quantity: item.quantity })),
+        }),
+      })
+      const body = await res.json()
+      if (!res.ok || !body.success) throw new Error(body.error ?? "Checkout failed")
+
+      if (body.data.checkout_url) {
+        await clearCart()
+        window.location.href = body.data.checkout_url
+        return
+      }
+
+      toast.info(body.data.message ?? "Order created. Payment gateway is not configured.")
+      router.push(`/orders?order=${body.data.order_id}`)
     } catch (error) {
-      console.error("Failed to complete checkout:", error)
+      toast.error(error instanceof Error ? error.message : "Unable to start checkout")
+    } finally {
+      setLoading(false)
     }
   }
 
   if (items.length === 0) {
     return (
-      <div className="py-12 text-center">
-        <h1 className="text-2xl font-bold mb-4">Your cart is empty</h1>
-        <p className="text-muted-foreground">Please add items to your cart before checking out.</p>
+      <div className="py-14 text-center">
+        <h1 className="text-2xl font-semibold">Your cart is empty</h1>
+        <p className="mt-2 text-muted-foreground">Add a course, software product, download, or community before checkout.</p>
+        <Button asChild className="mt-5">
+          <Link href="/products">Browse marketplace</Link>
+        </Button>
       </div>
     )
   }
 
   return (
-    <div className="py-12">
-      <div className="max-w-4xl mx-auto">
-        <h1 className="text-3xl font-bold mb-6">Checkout</h1>
+    <div className="py-8 md:py-10">
+      <div className="mb-8">
+        <h1 className="text-3xl font-semibold tracking-tight">Checkout</h1>
+        <p className="mt-2 text-muted-foreground">Access unlocks only after the payment provider confirms the payment.</p>
+      </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* Order Summary */}
-          <div className="bg-muted/50 rounded-lg p-6 space-y-6">
-            <div>
-              <h2 className="text-lg font-semibold mb-2">Order Summary</h2>
-              {items.map((item) => (
-                <div key={item.id} className="flex justify-between text-sm mb-1">
-                  <span>
-                    {item.title} × {item.quantity}
-                  </span>
-                  <span>₹{(item.price * item.quantity).toFixed(2)}</span>
+      <div className="grid gap-8 lg:grid-cols-[1fr_380px]">
+        <section className="space-y-4">
+          {items.map((item) => (
+            <div key={item.id} className="grid gap-4 rounded-lg border p-4 sm:grid-cols-[96px_1fr_auto]">
+              <div className="relative aspect-square overflow-hidden rounded-md bg-muted">
+                <Image src={item.image || "/placeholder.jpg"} alt={item.title} fill className="object-cover" />
+              </div>
+              <div>
+                <h2 className="font-semibold">{item.title}</h2>
+                <p className="text-sm text-muted-foreground">{item.category} by {item.seller}</p>
+                <div className="mt-3 flex items-center gap-2">
+                  <Button variant="outline" size="sm" onClick={() => updateQuantity(item.id, item.quantity - 1)}>-</Button>
+                  <span className="w-8 text-center text-sm">{item.quantity}</span>
+                  <Button variant="outline" size="sm" onClick={() => updateQuantity(item.id, item.quantity + 1)}>+</Button>
                 </div>
-              ))}
-              <Separator className="my-4" />
-              <div className="flex justify-between text-sm">
-                <span>Subtotal</span>
-                <span>₹{subtotal.toFixed(2)}</span>
               </div>
-              <div className="flex justify-between text-sm">
-                <span>Tax (10%)</span>
-                <span>₹{tax.toFixed(2)}</span>
-              </div>
-              <div className="flex justify-between font-semibold text-base mt-2">
-                <span>Total</span>
-                <span>₹{total.toFixed(2)}</span>
+              <div className="flex items-start justify-between gap-4 sm:block sm:text-right">
+                <p className="font-semibold">{formatMoney(item.price * item.quantity)}</p>
+                <Button variant="ghost" size="icon" onClick={() => removeItem(item.id)} className="mt-0 sm:mt-3">
+                  <Trash2 className="h-4 w-4" />
+                  <span className="sr-only">Remove</span>
+                </Button>
               </div>
             </div>
-          </div>
+          ))}
+        </section>
 
-          {/* Payment Options */}
-          <div className="space-y-6">
-            <Tabs value={selectedPaymentMethod} onValueChange={setSelectedPaymentMethod} className="w-full">
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="qr" className="flex items-center gap-2">
-                  <QrCode className="h-4 w-4" />
-                  QR Code
-                </TabsTrigger>
-                <TabsTrigger value="upi" className="flex items-center gap-2">
-                  <Smartphone className="h-4 w-4" />
-                  Direct UPI
-                </TabsTrigger>
-              </TabsList>
-              
-              <TabsContent value="qr" className="mt-6">
-                <UPIQRCode 
-                  amount={total} 
-                  description="Payment for Digital Products"
-                  onPaymentComplete={handlePaymentComplete}
-                />
-              </TabsContent>
-              
-              <TabsContent value="upi" className="mt-6">
-                <div className="bg-muted/50 rounded-lg p-6">
-                  <h3 className="text-lg font-semibold mb-4">Direct UPI Payment</h3>
-                  <UPIPayment 
-                    amount={total} 
-                    onPaymentComplete={handlePaymentComplete}
-                  />
-                </div>
-              </TabsContent>
-            </Tabs>
-
-            {/* Payment Instructions */}
-            <div className="bg-blue-50 dark:bg-blue-950/20 rounded-lg p-4">
-              <h3 className="font-semibold text-blue-700 dark:text-blue-300 mb-2">
-                Payment Instructions
-              </h3>
-              <div className="text-sm text-blue-600 dark:text-blue-400 space-y-1">
-                <p><strong>QR Code Method:</strong> Scan the QR code with any UPI app</p>
-                <p><strong>Direct UPI Method:</strong> Click the button to open your UPI app directly</p>
-                <p className="mt-2 text-xs">Both methods will send payment to our official Paytm UPI ID</p>
-              </div>
+        <aside className="h-fit rounded-lg border p-5 lg:sticky lg:top-28">
+          <h2 className="text-lg font-semibold">Order summary</h2>
+          <div className="mt-4 space-y-3 text-sm">
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Subtotal</span>
+              <span>{formatMoney(subtotal)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Platform fee</span>
+              <span>{formatMoney(platformFee)}</span>
+            </div>
+            <Separator />
+            <div className="flex justify-between text-base font-semibold">
+              <span>Total</span>
+              <span>{formatMoney(total)}</span>
             </div>
           </div>
-        </div>
+          <Button size="lg" className="mt-5 w-full gap-2" onClick={startCheckout} disabled={loading}>
+            <CreditCard className="h-4 w-4" />
+            {loading ? "Starting payment..." : "Pay securely"}
+          </Button>
+          <div className="mt-4 space-y-2 text-sm text-muted-foreground">
+            <p className="flex gap-2"><Lock className="mt-0.5 h-4 w-4 shrink-0" /> No frontend-only unlocks.</p>
+            <p className="flex gap-2"><ShieldCheck className="mt-0.5 h-4 w-4 shrink-0" /> Products unlock from verified webhooks.</p>
+          </div>
+        </aside>
       </div>
     </div>
   )

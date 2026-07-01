@@ -1,181 +1,173 @@
 "use client"
 
+import Image from "next/image"
 import Link from "next/link"
-import { ArrowRight, Store } from "lucide-react"
+import type { ElementType } from "react"
 import { useEffect, useMemo, useState } from "react"
+import { BookOpen, Boxes, Code2, Download, Search, Users } from "lucide-react"
 
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import ProductCard from "@/app/components/product-card"
-import CategoryFilter from "@/app/components/category-filter"
-import { supabase } from "@/lib/supabase/client"
+import { Input } from "@/components/ui/input"
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { formatMoney, type MarketplaceProduct, type ProductType } from "@/lib/marketplace"
 
-type Campaign = {
-  id: string | number
-  title: string
-  description?: string
-  category?: string
-  platform?: string
-  thumbnail?: string
-  payout?: number
-  budget?: number
-  seller_id?: string
-  contact_email?: string
-  website?: string
-  social_links?: string[] | null
+const typeCopy: Record<ProductType | "all", { label: string; icon: ElementType }> = {
+  all: { label: "All", icon: Boxes },
+  course: { label: "Courses", icon: BookOpen },
+  software: { label: "Software", icon: Code2 },
+  community: { label: "Communities", icon: Users },
+  download: { label: "Downloads", icon: Download },
+  bundle: { label: "Bundles", icon: Boxes },
 }
 
-const placeholderImage = "/placeholder.svg?height=300&width=300"
+const placeholder = "/placeholder.jpg"
 
 export default function ProductsPage() {
-  const [campaigns, setCampaigns] = useState<Campaign[]>([])
+  const [products, setProducts] = useState<MarketplaceProduct[]>([])
+  const [activeType, setActiveType] = useState<ProductType | "all">("all")
+  const [query, setQuery] = useState("")
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [activeTab, setActiveTab] = useState("all")
 
   useEffect(() => {
-    const fetchCampaigns = async () => {
-      setLoading(true)
-      const { data, error } = await supabase
-        .from<Campaign>("campaigns")
-        .select("*")
-        .eq("status", "active")
-        .order("created_at", { ascending: false })
+    const controller = new AbortController()
+    const timer = window.setTimeout(async () => {
+      try {
+        setLoading(true)
+        const params = new URLSearchParams()
+        if (activeType !== "all") params.set("type", activeType)
+        if (query.trim()) params.set("q", query.trim())
 
-      if (error) {
-        setError(error.message)
-        setCampaigns([])
-      } else {
+        const res = await fetch(`/api/marketplace/products?${params.toString()}`, {
+          signal: controller.signal,
+        })
+        const body = await res.json()
+        if (!res.ok || !body.success) throw new Error(body.error ?? "Failed to load products")
+        setProducts(body.data)
         setError(null)
-        setCampaigns(data ?? [])
+      } catch (err) {
+        if ((err as Error).name !== "AbortError") {
+          setError(err instanceof Error ? err.message : "Failed to load products")
+        }
+      } finally {
+        setLoading(false)
       }
+    }, 180)
 
-      setLoading(false)
+    return () => {
+      window.clearTimeout(timer)
+      controller.abort()
     }
+  }, [activeType, query])
 
-    fetchCampaigns()
-  }, [])
-
-  const categories = useMemo(() => {
-    const groups = campaigns.reduce<Record<string, Campaign[]>>((acc, campaign) => {
-      const key = campaign.platform || campaign.category || "General"
-      const normalizedKey = key.trim() || "General"
-      if (!acc[normalizedKey]) {
-        acc[normalizedKey] = []
-      }
-      acc[normalizedKey].push(campaign)
-      return acc
-    }, {})
-
-    return [
-      {
-        id: "all",
-        name: "All Campaigns",
-        products: campaigns,
-      },
-      ...Object.entries(groups).map(([key, products]) => ({
-        id: key.toLowerCase().replace(/\s+/g, "-"),
-        name: key,
-        products,
-      })),
-    ]
-  }, [campaigns])
-
-  const activeCategory = categories.find((category) => category.id === activeTab) ?? categories[0]
+  const categories = useMemo(
+    () => Array.from(new Set(products.map((product) => product.category).filter(Boolean))).slice(0, 8),
+    [products]
+  )
 
   return (
-      <div className="container py-8 md:py-12">
-        <div className="flex flex-col gap-8">
+    <div className="py-8 md:py-10">
+      <section className="mb-8 grid gap-6 lg:grid-cols-[1.2fr_0.8fr] lg:items-end">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Browse Digital Products and Campaigns</h1>
-          <p className="text-muted-foreground mt-2">Discover active products and campaigns from sellers across the marketplace.</p>
+          <Badge variant="outline" className="mb-3">Digital marketplace</Badge>
+          <h1 className="max-w-3xl text-3xl font-semibold tracking-tight md:text-5xl">
+            Buy courses, software, downloads, and private communities.
+          </h1>
+          <p className="mt-3 max-w-2xl text-muted-foreground">
+            Products unlock after verified payment. Community products can include Telegram access through Youbairia.
+          </p>
+        </div>
+        <div className="flex gap-2 rounded-lg border bg-background p-2">
+          <Search className="mt-2.5 h-4 w-4 shrink-0 text-muted-foreground" />
+          <Input
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Search products, skills, communities"
+            className="border-0 shadow-none focus-visible:ring-0"
+          />
+        </div>
+      </section>
+
+      <Tabs value={activeType} onValueChange={(value) => setActiveType(value as ProductType | "all")}>
+        <TabsList className="mb-6 h-auto w-full justify-start overflow-x-auto p-1">
+          {Object.entries(typeCopy).map(([value, item]) => {
+            const Icon = item.icon
+            return (
+              <TabsTrigger key={value} value={value} className="gap-2">
+                <Icon className="h-4 w-4" />
+                {item.label}
+              </TabsTrigger>
+            )
+          })}
+        </TabsList>
+      </Tabs>
+
+      {categories.length > 0 && (
+        <div className="mb-6 flex flex-wrap gap-2">
+          {categories.map((category) => (
+            <Badge key={category} variant="secondary">{category}</Badge>
+          ))}
+        </div>
+      )}
+
+      {loading ? (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {Array.from({ length: 6 }).map((_, index) => (
+            <div key={index} className="h-80 animate-pulse rounded-lg border bg-muted/40" />
+          ))}
+        </div>
+      ) : error ? (
+        <div className="rounded-lg border border-destructive/40 p-8 text-center text-destructive">{error}</div>
+      ) : products.length === 0 ? (
+        <div className="rounded-lg border border-dashed p-10 text-center">
+          <h2 className="text-xl font-semibold">No products found</h2>
+          <p className="mt-2 text-sm text-muted-foreground">Try another search or create the first listing.</p>
           <Button asChild className="mt-4">
-            <Link href="/create-shop">
-              <Store className="mr-2 h-4 w-4" />
-              Create Shop
-            </Link>
+            <Link href="/sell/product">Create product</Link>
           </Button>
         </div>
+      ) : (
+        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          {products.map((product) => {
+            const image = product.cover_url || product.thumbnail_url || placeholder
+            const href = `/products/${product.slug || product.id}`
+            const type = typeCopy[product.product_type]
+            const TypeIcon = type.icon
 
-        <div className="md:hidden">
-          <CategoryFilter />
-        </div>
-
-        {loading ? (
-          <div className="rounded-3xl border border-dashed border-muted p-10 text-center">
-            <p className="text-lg font-medium">Loading campaigns...</p>
-            <p className="text-sm text-muted-foreground mt-2">Fetching the latest campaign listings from Supabase.</p>
-          </div>
-        ) : error ? (
-          <div className="rounded-3xl border border-destructive p-10 text-center">
-            <p className="text-lg font-medium text-destructive">Unable to load campaigns</p>
-            <p className="text-sm text-muted-foreground mt-2">{error}</p>
-          </div>
-        ) : campaigns.length === 0 ? (
-          <div className="rounded-3xl border border-muted p-10 text-center">
-            <p className="text-lg font-medium">No campaigns found</p>
-            <p className="text-sm text-muted-foreground mt-2">Create a campaign from the create shop page to get listed here.</p>
-          </div>
-        ) : (
-          <>
-            <div className="hidden md:block">
-              <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-                <TabsList className="w-full justify-start mb-8 overflow-auto">
-                  {categories.map((category) => (
-                    <TabsTrigger key={category.id} value={category.id}>
-                      {category.name}
-                    </TabsTrigger>
-                  ))}
-                </TabsList>
-
-                <TabsContent value={activeCategory?.id ?? "all"}>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                    {activeCategory?.products.map((campaign) => (
-                      <ProductCard
-                        key={campaign.id}
-                        id={String(campaign.id)}
-                        title={campaign.title}
-                        price={Number(campaign.payout ?? campaign.budget ?? 0)}
-                        image={campaign.thumbnail || placeholderImage}
-                        category={campaign.platform || campaign.category || "General"}
-                        seller={campaign.title}
-                      />
-                    ))}
+            return (
+              <Link
+                key={product.id}
+                href={href}
+                className="group overflow-hidden rounded-lg border bg-background transition hover:border-foreground/30 hover:shadow-sm"
+              >
+                <div className="relative aspect-[16/10] bg-muted">
+                  <Image src={image} alt={product.title} fill className="object-cover transition group-hover:scale-[1.02]" />
+                </div>
+                <div className="space-y-3 p-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <Badge variant="outline" className="gap-1">
+                      <TypeIcon className="h-3.5 w-3.5" />
+                      {type.label}
+                    </Badge>
+                    <span className="font-semibold">{formatMoney(Number(product.price), product.currency)}</span>
                   </div>
-                </TabsContent>
-              </Tabs>
-            </div>
-
-            <div className="md:hidden space-y-12">
-              {categories.slice(1).map((category) => (
-                <div key={category.id} className="space-y-6">
-                  <div className="flex items-center justify-between">
-                    <h2 className="text-2xl font-semibold">{category.name}</h2>
-                    <Link href={`/products/category/${category.id}`}>
-                      <Button variant="link" className="gap-1">
-                        View All <ArrowRight className="h-4 w-4" />
-                      </Button>
-                    </Link>
+                  <div>
+                    <h2 className="line-clamp-2 text-lg font-semibold">{product.title}</h2>
+                    <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">
+                      {product.subtitle || product.description}
+                    </p>
                   </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                    {category.products.slice(0, 2).map((campaign) => (
-                      <ProductCard
-                        key={campaign.id}
-                        id={String(campaign.id)}
-                        title={campaign.title}
-                        price={Number(campaign.payout ?? campaign.budget ?? 0)}
-                        image={campaign.thumbnail || placeholderImage}
-                        category={campaign.platform || campaign.category || "General"}
-                        seller={campaign.title}
-                      />
-                    ))}
+                  <div className="flex items-center justify-between text-sm text-muted-foreground">
+                    <span>{product.seller_name || "Youbairia seller"}</span>
+                    <span>{product.category}</span>
                   </div>
                 </div>
-              ))}
-            </div>
-          </>
-        )}
-      </div>
+              </Link>
+            )
+          })}
+        </div>
+      )}
     </div>
   )
 }

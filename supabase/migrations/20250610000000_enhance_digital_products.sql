@@ -49,15 +49,7 @@ create policy "digital_products_creator_update"
   using (auth.uid() = creator_id)
   with check (
     auth.uid() = creator_id
-    and (
-      -- Allow updating these fields
-      (moderation_status = old.moderation_status or moderation_status in ('pending', 'draft'))
-      and featured = old.featured
-      and (approved_at is not distinct from old.approved_at)
-      and (approved_by is not distinct from old.approved_by)
-      and (rejected_at is not distinct from old.rejected_at)
-      and (rejected_by is not distinct from old.rejected_by)
-    )
+    and moderation_status in ('pending', 'approved', 'rejected')
   );
 
 -- Creator delete: own products only if not approved
