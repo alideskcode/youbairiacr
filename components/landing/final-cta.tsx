@@ -2,28 +2,41 @@
 
 import Link from "next/link"
 import { motion } from "framer-motion"
+import { ArrowRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
 export function FinalCtaSection() {
   return (
-    <section className="bg-gradient-to-r from-[#6F263D]/95 to-slate-900/90 py-16 md:py-20">
-      <div className="container mx-auto px-4">
-        <motion.div initial={{ opacity: 0, y: 24 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, amount: 0.2 }} transition={{ duration: 0.7 }} className="rounded-[2rem] border border-white/10 bg-white/5 p-10 shadow-2xl shadow-[#6F263D]/10 backdrop-blur-xl md:p-16">
-          <div className="flex flex-col items-center justify-between gap-6 text-center md:flex-row md:text-left">
+    <section className="bg-white pb-20 md:pb-28">
+      <div className="mx-auto max-w-7xl px-4">
+        <motion.div
+          initial={{ opacity: 0, y: 18 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, amount: 0.25 }}
+          transition={{ duration: 0.55 }}
+          className="rounded-lg bg-black px-6 py-12 text-white md:px-12 md:py-16"
+        >
+          <div className="flex flex-col justify-between gap-8 md:flex-row md:items-end">
             <div className="max-w-2xl">
-              <p className="text-sm uppercase tracking-[0.28em] text-slate-200">Ready to make it real?</p>
-              <h2 className="mt-4 text-3xl font-semibold tracking-tight text-white sm:text-4xl md:text-5xl">
-                Start your business on the internet with confidence.
+              <p className="text-sm font-medium uppercase tracking-[0.18em] text-neutral-400">Create yours</p>
+              <h2 className="mt-4 text-4xl font-semibold tracking-tight sm:text-5xl">
+                Start with one product. Grow into a marketplace business.
               </h2>
-              <p className="mt-4 max-w-xl text-sm leading-7 text-slate-200/90 sm:text-base">
-                Join a premium platform designed for creators, founders, and digital-first businesses who want a polished launch experience.
+              <p className="mt-5 text-lg leading-8 text-neutral-300">
+                Launch a store for your course, software, AI tool, community, ebook, PDF, service knowledge, or digital product catalog.
               </p>
             </div>
-            <Link href="/signup">
-              <Button size="lg" className="min-w-[180px] bg-white text-[#6F263D] hover:bg-slate-100">
-                Create account
+            <div className="flex flex-col gap-3 sm:flex-row md:flex-col lg:flex-row">
+              <Button asChild size="lg" className="h-12 rounded-md bg-white px-6 text-black hover:bg-neutral-200">
+                <Link href="/signup">
+                  Create account
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Link>
               </Button>
-            </Link>
+              <Button asChild size="lg" variant="outline" className="h-12 rounded-md border-white/20 bg-transparent px-6 text-white hover:bg-white/10">
+                <Link href="/contact-us">Get help</Link>
+              </Button>
+            </div>
           </div>
         </motion.div>
       </div>

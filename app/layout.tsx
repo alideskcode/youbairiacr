@@ -1,5 +1,4 @@
 import type { Metadata } from 'next'
-import { Inter } from 'next/font/google'
 import './globals.css'
 import { Navbar } from '@/components/navbar'
 import { Footer } from '@/components/footer'
@@ -7,11 +6,9 @@ import { Toaster } from 'sonner'
 import { SessionProvider } from '@/components/session-provider'
 import { CartNotification } from './components/cart-notification'
 
-const inter = Inter({ subsets: ['latin'] })
-
 export const metadata: Metadata = {
-  title: 'Digital Marketplace',
-  description: 'Your one-stop shop for digital products',
+  title: 'Youbairia',
+  description: 'Buy, sell, and launch digital products online.',
 }
 
 export default function RootLayout({
@@ -21,7 +18,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className={inter.className}>
+      <body>
         <SessionProvider>
           <div className="min-h-screen flex flex-col">
             <Navbar />

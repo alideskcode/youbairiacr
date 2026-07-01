@@ -4,6 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "backend": "node backend/server.js",
+    "backend:dev": "node --watch backend/server.js",
     "build": "next build",
     "start": "next start",
     "postinstall": "prisma generate"
@@ -50,9 +52,13 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "1.0.4",
+    "cors": "^2.8.6",
     "date-fns": "^3.6.0",
+    "dotenv": "^17.4.2",
     "embla-carousel-react": "8.5.1",
+    "express": "^5.2.1",
     "framer-motion": "^12.40.0",
+    "helmet": "^8.2.0",
     "input-otp": "1.4.1",
     "lucide-react": "^0.454.0",
     "mysql2": "^3.22.3",

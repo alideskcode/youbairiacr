@@ -2,18 +2,44 @@
 
 import { motion } from "framer-motion"
 
+const audiences = [
+  "Creators selling knowledge",
+  "Businesses launching digital stores",
+  "Developers selling software",
+  "Operators building niche communities",
+  "Brands running marketing campaigns",
+]
+
 export function VisionSection() {
   return (
-    <section className="bg-[#F8FAFC] py-16 md:py-20">
-      <div className="container mx-auto px-4">
-        <motion.div initial={{ opacity: 0, y: 18 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, amount: 0.2 }} transition={{ duration: 0.7 }} className="rounded-[2rem] border border-slate-200 bg-white p-10 shadow-sm md:p-16">
-          <p className="text-sm uppercase tracking-[0.28em] text-[#6F263D]">Why this matters</p>
-          <h2 className="mt-6 text-4xl font-semibold tracking-tight text-slate-900 sm:text-5xl">
-            Youbairia helps people start modern internet businesses that feel genuine, structured, and sustainable.
-          </h2>
-          <p className="mt-6 max-w-3xl text-lg leading-8 text-slate-600">
-            We believe a digital business should be more than just a storefront. It should be an experience that inspires customers, supports creators, and scales with clarity.
-          </p>
+    <section className="bg-white py-16 md:py-24">
+      <div className="mx-auto max-w-7xl px-4">
+        <motion.div
+          initial={{ opacity: 0, y: 18 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, amount: 0.25 }}
+          transition={{ duration: 0.55 }}
+          className="grid gap-10 border-b border-black/10 pb-16 lg:grid-cols-[1fr_0.8fr]"
+        >
+          <div>
+            <p className="text-sm font-medium uppercase tracking-[0.18em] text-neutral-500">About Youbairia</p>
+            <h2 className="mt-4 text-4xl font-semibold tracking-tight text-black sm:text-5xl">
+              A home for people turning knowledge, tools, and communities into digital products.
+            </h2>
+          </div>
+          <div>
+            <p className="text-lg leading-8 text-neutral-600">
+              Youbairia enables people to buy, sell, and build around digital products. A business can create an instant store, sell courses or software, publish ebooks and PDFs, offer AI tools, build a community, and use campaigns to reach the right buyers.
+            </p>
+            <div className="mt-8 grid gap-3">
+              {audiences.map((audience) => (
+                <div key={audience} className="flex items-center justify-between border-t border-black/10 py-3 text-sm">
+                  <span className="font-medium text-black">{audience}</span>
+                  <span className="text-neutral-400">Ready</span>
+                </div>
+              ))}
+            </div>
+          </div>
         </motion.div>
       </div>
     </section>
